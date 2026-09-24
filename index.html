@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>WebCraft Pro — 輕量前端即時開發沙盒 (全功能剪貼簿增強版)</title>
+  <style>
+    :root {
+      --bg-base: #f8fafc;
+      --bg-surface: #ffffff;
+      --border-color: #e2e8f0;
+      --border-focus: #3b82f6;
+      --text-main: #0f172a;
+      --text-muted: #64748b;
+      --text-dim: #94a3b8;
+      --primary: #2563eb;
+      --primary-hover: #1d4ed8;
+      --success: #16a34a;
+      --font-mono: "JetBrains Mono", "SF Mono", Menlo, Consolas, "Courier New", monospace;
+      --font-sans: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "PingFang TC", "Noto Sans TC", sans-serif;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: var(--font-sans); background: var(--bg-base); color: var(--text-main); height: 100vh; display: flex; flex-direction: column; overflow: hidden; }
+
+    header {
+      height: 52px; background: var(--bg-surface); border-bottom: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 16px; flex-shrink: 0;
+    }
+    .brand-group { display: flex; align-items: center; gap: 12px; }
+    .brand-title { font-size: 0.95rem; font-weight: 700; color: var(--text-main); display: flex; align-items: center; gap: 6px; letter-spacing: -0.2px; }
+    .brand-badge {
+      font-size: 0.7rem; font-family: var(--font-mono); background: #eff6ff; color: var(--primary);
+      padding: 2px 6px; border-radius: 4px; font-weight: 600; border: 1px solid #bfdbfe;
+    }
+
+    .action-group { display: flex; align-items: center; gap: 8px; }
+    .btn {
+      display: inline-flex; align-items: center; gap: 5px; height: 32px; padding: 0 10px; font-size: 0.8rem;
+      font-weight: 500; border-radius: 6px; border: 1px solid var(--border-color); background: var(--bg-surface);
+      color: var(--text-main); cursor: pointer; transition: all 0.15s ease;
+    }
+    .btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+    .btn-copy-canvas { background: #eff6ff; color: var(--primary); border-color: #bfdbfe; font-weight: 600; }
+    .btn-copy-canvas:hover { background: #dbeafe; }
+    .btn-primary { background: var(--primary); color: #fff; border-color: var(--primary); }
+    .btn-primary:hover { background: var(--primary-hover); }
+
+    .viewport-toggle {
+      display: flex; background: #f1f5f9; padding: 2px; border-radius: 6px; border: 1px solid var(--border-color);
+    }
+    .viewport-btn {
+      border: none; background: transparent; padding: 4px 10px; font-size: 0.75rem; font-weight: 500;
+      color: var(--text-muted); border-radius: 4px; cursor: pointer; transition: 0.15s;
+    }
+    .viewport-btn.active { background: #fff; color: var(--text-main); box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+
+    .workspace { flex: 1; display: flex; position: relative; overflow: hidden; }
+
+    .editor-container {
+      width: 50%; height: 100%; display: flex; flex-direction: column; background: var(--bg-surface);
+      border-right: 1px solid var(--border-color); position: relative;
+    }
+    .editor-body { flex: 1; display: flex; position: relative; overflow: hidden; }
+    
+    .gutter {
+      width: 48px; background: #fafafa; border-right: 1px solid #f1f5f9; color: var(--text-dim);
+      font-family: var(--font-mono); font-size: 0.88rem; line-height: 1.6; padding: 16px 8px 16px 0;
+      text-align: right; user-select: none; overflow: hidden; flex-shrink: 0;
+    }
+    .code-input {
+      flex: 1; height: 100%; padding: 16px; border: none; outline: none; resize: none;
+      font-family: var(--font-mono); font-size: 0.88rem; line-height: 1.6; color: #1e293b;
+      background: transparent; white-space: pre; tab-size: 2; overflow: auto;
+    }
+
+    .resizer {
+      width: 6px; cursor: col-resize; background: transparent; transition: background 0.2s;
+      z-index: 10; margin-left: -3px; margin-right: -3px; touch-action: none;
+    }
+    .resizer:hover, .resizer.dragging { background: var(--primary); }
+
+    .preview-container {
+      flex: 1; height: 100%; background: #f1f5f9; display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-start; overflow: hidden; position: relative;
+    }
+    .preview-stage {
+      width: 100%; height: 100%; transition: width 0.2s ease; display: flex; flex-direction: column;
+      background: #fff; position: relative;
+    }
+    .preview-stage.device-tablet { width: 768px; margin: 16px 0; border-radius: 8px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+    .preview-stage.device-mobile { width: 375px; margin: 16px 0; border-radius: 12px; box-shadow: 0 10px 25px -5px rgba(0,0,0,0.1); border: 1px solid var(--border-color); }
+    
+    iframe { width: 100%; height: 100%; border: none; background: #fff; flex: 1; }
+
+    footer {
+      height: 28px; background: #fafafa; border-top: 1px solid var(--border-color);
+      display: flex; align-items: center; justify-content: space-between; padding: 0 12px;
+      font-size: 0.72rem; color: var(--text-muted); font-family: var(--font-mono); flex-shrink: 0;
+    }
+    .footer-left, .footer-right { display: flex; align-items: center; gap: 12px; }
+    .status-dot { width: 6px; height: 6px; border-radius: 50%; background: #22c55e; display: inline-block; }
+
+    .console-drawer {
+      height: 140px; width: 100%; background: #0f172a; color: #f8fafc; border-top: 1px solid #334155;
+      display: none; flex-direction: column; font-family: var(--font-mono); font-size: 0.75rem;
+    }
+    .console-header {
+      height: 26px; background: #1e293b; padding: 0 10px; display: flex; align-items: center;
+      justify-content: space-between; color: #94a3b8; border-bottom: 1px solid #334155;
+    }
+    .console-logs { flex: 1; overflow-y: auto; padding: 8px 10px; word-break: break-all; }
+    .log-item { margin-bottom: 4px; display: flex; gap: 8px; }
+    .log-time { color: #64748b; flex-shrink: 0; }
+    .log-info { color: #38bdf8; }
+    .log-warn { color: #facc15; }
+    .log-error { color: #f87171; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-group">
+      <div class="brand-title">
+        <span>⚡ WebCraft Pro</span>
+        <span class="brand-badge">IDE v2.5 (Clip+ Auto)</span>
+      </div>
+    </div>
+
+    <div class="viewport-toggle">
+      <button class="viewport-btn active" onclick="setViewport('desktop', this)">桌面 100%</button>
+      <button class="viewport-btn" onclick="setViewport('tablet', this)">平板 768px</button>
+      <button class="viewport-btn" onclick="setViewport('mobile', this)">手機 375px</button>
+    </div>
+
+    <div class="action-group">
+      <button id="topCopyBtn" class="btn btn-copy-canvas" onclick="copyCanvasFromPreview()" title="直接複製右側畫布中的成品">📋 複製畫布成品</button>
+      <button class="btn" onclick="toggleConsole()">控制台</button>
+      <button class="btn" onclick="copySource()">複製源碼</button>
+      <button class="btn btn-primary" onclick="exportFile()">匯出 .html</button>
+    </div>
+  </header>
+
+  <div class="workspace" id="workspace">
+    <div class="editor-container" id="editorContainer">
+      <div class="editor-body">
+        <div class="gutter" id="gutter"></div>
+        <textarea id="codeEditor" class="code-input" spellcheck="false" wrap="off"></textarea>
+      </div>
+    </div>
+
+    <div class="resizer" id="resizer"></div>
+
+    <div class="preview-container">
+      <div class="preview-stage" id="previewStage">
+        <!-- 移除限制性 sandbox，保證本機原生互通 -->
+        <iframe id="previewFrame"></iframe>
+      </div>
+      
+      <div class="console-drawer" id="consoleDrawer">
+        <div class="console-header">
+          <span>沙盒控制台日誌 (Console Log)</span>
+          <span style="cursor:pointer;" onclick="clearConsole()">清空</span>
+        </div>
+        <div class="console-logs" id="consoleLogs"></div>
+      </div>
+    </div>
+  </div>
+
+  <footer>
+    <div class="footer-left">
+      <span><span class="status-dot"></span> 智慧剪貼簿監聽已啟動（隨時可直接 Ctrl+V 貼圖）</span>
+      <span id="cursorPos">行 1, 欄 1</span>
+    </div>
+    <div class="footer-right">
+      <span id="charCount">0 字元</span>
+      <span>UTF-8</span>
+    </div>
+  </footer>
+
+  <script>
+    const codeEditor = document.getElementById('codeEditor');
+    const gutter = document.getElementById('gutter');
+    const previewFrame = document.getElementById('previewFrame');
+    const cursorPos = document.getElementById('cursorPos');
+    const charCount = document.getElementById('charCount');
+    const consoleLogs = document.getElementById('consoleLogs');
+    const topCopyBtn = document.getElementById('topCopyBtn');
+
+    // 1. 全域智慧貼圖監聽：不管游標在哪，只要按 Ctrl+V 且剪貼簿有圖片，直接送入畫布！
+    window.addEventListener('paste', (e) => {
+      const items = e.clipboardData?.items;
+      if (!items) return;
+      for (const item of items) {
+        if (item.type.includes('image')) {
+          e.preventDefault(); // 避免把亂碼貼進左邊代碼區
+          const file = item.getAsFile();
+          if (file) feedImageToIframe(file);
+          return;
+        }
+      }
+    });
+
+    function feedImageToIframe(file) {
+      try {
+        const win = previewFrame.contentWindow;
+        if (!win) return;
+        if (typeof win.handleFile === 'function') {
+          win.handleFile(file);
+        } else {
+          const img = new Image();
+          img.onload = () => {
+            if (typeof win.renderImage === 'function') win.renderImage(img);
+          };
+          img.src = URL.createObjectURL(file);
+        }
+      } catch (err) {
+        console.warn("無法傳遞圖片至子視窗：", err);
+      }
+    }
+
+    // 2. 本地剪貼簿相容複製引擎（支援 file:/// 環境）
+    window.copyBlobToClipboard = async function(blob) {
+      try {
+        if (navigator.clipboard && window.isSecureContext) {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          return true;
+        }
+      } catch (e) {}
+
+      // 備用方案：透過臨時 contenteditable 元素以 execCommand 複製
+      try {
+        const div = document.createElement('div');
+        div.contentEditable = 'true';
+        div.style.position = 'fixed';
+        div.style.left = '-9999px';
+        const img = document.createElement('img');
+        img.src = URL.createObjectURL(blob);
+        div.appendChild(img);
+        document.body.appendChild(div);
+
+        const range = document.createRange();
+        range.selectNode(div);
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(range);
+
+        const ok = document.execCommand('copy');
+        document.body.removeChild(div);
+        URL.revokeObjectURL(img.src);
+        if (ok) return true;
+      } catch (e) {}
+
+      // 雙重失敗保險：自動觸發下載
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(blob);
+      a.download = `標註成品_${Date.now()}.png`;
+      a.click();
+      URL.revokeObjectURL(a.href);
+      return false;
+    };
+
+    // 頂部「複製畫布成品」按鈕實作
+    function copyCanvasFromPreview() {
+      try {
+        const win = previewFrame.contentWindow;
+        const canvas = win.document.querySelector('canvas');
+        if (!canvas) {
+          alert('找不到可複製的畫布！');
+          return;
+        }
+        canvas.toBlob(async (blob) => {
+          if (!blob) return;
+          const ok = await window.copyBlobToClipboard(blob);
+          const orig = topCopyBtn.innerText;
+          topCopyBtn.innerText = ok ? '✅ 畫布已複製！' : '💾 已自動下載儲存！';
+          topCopyBtn.style.color = '#16a34a';
+          setTimeout(() => {
+            topCopyBtn.innerText = orig;
+            topCopyBtn.style.color = '';
+          }, 1800);
+        }, 'image/png');
+      } catch(e) {
+        alert('複製失敗，請確認預覽區已正常載入。');
+      }
+    }
+
+    // 3. 行號計算
+    function updateGutter() {
+      const lines = codeEditor.value.split('\n').length;
+      let numbersHtml = '';
+      for (let i = 1; i <= lines; i++) numbersHtml += `<div>${i}</div>`;
+      gutter.innerHTML = numbersHtml;
+    }
+    codeEditor.addEventListener('scroll', () => { gutter.scrollTop = codeEditor.scrollTop; });
+
+    // 4. 即時渲染與注入橋接腳本
+    let renderTimer = null;
+    function renderPreview() {
+      clearTimeout(renderTimer);
+      renderTimer = setTimeout(() => {
+        const source = codeEditor.value;
+        try { localStorage.setItem('webcraft_source', source); } catch (e) {}
+
+        // 自動注入：剪貼簿代理 + 控制台捕獲
+        const bridgeScript = `
+          <script>
+            (function() {
+              // 攔截並轉接 navigator.clipboard.write 至母視窗
+              if (navigator.clipboard) {
+                const _write = navigator.clipboard.write.bind(navigator.clipboard);
+                navigator.clipboard.write = async function(items) {
+                  try {
+                    return await _write(items);
+                  } catch(err) {
+                    if (window.parent && window.parent.copyBlobToClipboard) {
+                      for (const it of items) {
+                        if (it.types && it.types.includes('image/png')) {
+                          const blob = await it.getType('image/png');
+                          await window.parent.copyBlobToClipboard(blob);
+                          return;
+                        }
+                      }
+                    }
+                    throw err;
+                  }
+                };
+              }
+
+              // Console 監聽
+              function send(type, args) {
+                try {
+                  window.parent.postMessage({
+                    type: 'SANDBOX_CONSOLE', level: type,
+                    message: Array.from(args).map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ')
+                  }, '*');
+                } catch(e) {}
+              }
+              const _log = console.log, _warn = console.warn, _error = console.error;
+              console.log = function() { send('info', arguments); _log.apply(console, arguments); };
+              console.warn = function() { send('warn', arguments); _warn.apply(console, arguments); };
+              console.error = function() { send('error', arguments); _error.apply(console, arguments); };
+            })();
+          <\/script>
+        `;
+
+        let finalCode = source;
+        if (/<head[^>]*>/i.test(source)) {
+          finalCode = source.replace(/<head[^>]*>/i, `$&${bridgeScript}`);
+        } else {
+          finalCode = bridgeScript + source;
+        }
+        
+        previewFrame.srcdoc = finalCode;
+        charCount.textContent = `${source.length} 字元`;
+        updateGutter();
+      }, 250);
+    }
+
+    window.addEventListener('message', (e) => {
+      if (e.data && e.data.type === 'SANDBOX_CONSOLE') {
+        const div = document.createElement('div');
+        div.className = 'log-item';
+        div.innerHTML = `<span class="log-time">[${new Date().toLocaleTimeString()}]</span> <span class="log-${e.data.level}">${e.data.message}</span>`;
+        consoleLogs.appendChild(div);
+        consoleLogs.scrollTop = consoleLogs.scrollHeight;
+      }
+    });
+
+    // 5. 鍵盤事件增強 (支援 Tab 與 Enter 縮排)
+    codeEditor.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 's') { e.preventDefault(); renderPreview(); return; }
+      if (e.key === 'Tab') {
+        e.preventDefault();
+        document.execCommand('insertText', false, '  ');
+        renderPreview();
+        return;
+      }
+      if (e.key === 'Enter') {
+        const cur = codeEditor.selectionStart;
+        const line = codeEditor.value.substring(0, cur).split('\n').pop();
+        const m = line.match(/^(\s+)/);
+        if (m) {
+          e.preventDefault();
+          document.execCommand('insertText', false, '\n' + m[1]);
+          renderPreview();
+        }
+      }
+    });
+
+    function updateCursorInfo() {
+      const pos = codeEditor.selectionStart;
+      const lines = codeEditor.value.substring(0, pos).split('\n');
+      cursorPos.textContent = `行 ${lines.length}, 欄 ${lines[lines.length - 1].length + 1}`;
+    }
+    codeEditor.addEventListener('keyup', updateCursorInfo);
+    codeEditor.addEventListener('click', updateCursorInfo);
+    codeEditor.addEventListener('input', () => { renderPreview(); updateCursorInfo(); });
+
+    // 6. 視口與拖曳
+    function setViewport(mode, btn) {
+      document.querySelectorAll('.viewport-btn').forEach(b => b.classList.remove('active'));
+      btn.classList.add('active');
+      const s = document.getElementById('previewStage');
+      s.className = 'preview-stage';
+      if (mode === 'tablet') s.classList.add('device-tablet');
+      if (mode === 'mobile') s.classList.add('device-mobile');
+    }
+
+    const resizer = document.getElementById('resizer');
+    const editorContainer = document.getElementById('editorContainer');
+    let isDragging = false;
+    resizer.addEventListener('mousedown', () => { isDragging = true; previewFrame.style.pointerEvents = 'none'; });
+    window.addEventListener('mousemove', (e) => {
+      if (!isDragging) return;
+      const w = (e.clientX / document.getElementById('workspace').offsetWidth) * 100;
+      if (w >= 15 && w <= 85) editorContainer.style.width = `${w}%`;
+    });
+    window.addEventListener('mouseup', () => { isDragging = false; previewFrame.style.pointerEvents = 'auto'; });
+
+    // 工具按鈕
+    function copySource() {
+      navigator.clipboard.writeText(codeEditor.value);
+      alert('源碼已複製！');
+    }
+    function exportFile() {
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob([codeEditor.value], { type: 'text/html' }));
+      a.download = 'index.html';
+      a.click();
+    }
+    function toggleConsole() {
+      const d = document.getElementById('consoleDrawer');
+      d.style.display = (d.style.display === 'flex') ? 'none' : 'flex';
+    }
+    function clearConsole() { consoleLogs.innerHTML = ''; }
+
+    // 初始化
+    window.addEventListener('DOMContentLoaded', () => {
+      let saved = null;
+      try { saved = localStorage.getItem('webcraft_source'); } catch (e) {}
+      if (saved) codeEditor.value = saved;
+      renderPreview();
+      updateCursorInfo();
+    });
+  </script>
+</body>
+</html>
