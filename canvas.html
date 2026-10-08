@@ -118,7 +118,8 @@
 
     <div class="action-group">
       <button class="btn" onclick="copySource()">複製程式碼</button>
-      <button class="btn btn-primary" onclick="exportFile()">匯出 HTML</button>
+      <button class="btn" onclick="exportFile('txt')">匯出 TXT</button>
+      <button class="btn btn-primary" onclick="exportFile('html')">匯出 HTML</button>
     </div>
   </header>
 
@@ -340,11 +341,18 @@
       navigator.clipboard.writeText(codeEditor.value);
       alert('原始碼已複製至剪貼簿。');
     }
-    function exportFile() {
+
+    function exportFile(format = 'html') {
+      const isTxt = format === 'txt';
+      const mimeType = isTxt ? 'text/plain;charset=utf-8' : 'text/html;charset=utf-8';
+      const filename = isTxt ? 'source.txt' : 'index.html';
+
+      const blob = new Blob([codeEditor.value], { type: mimeType });
       const a = document.createElement('a');
-      a.href = URL.createObjectURL(new Blob([codeEditor.value], { type: 'text/html' }));
-      a.download = 'index.html';
+      a.href = URL.createObjectURL(blob);
+      a.download = filename;
       a.click();
+      URL.revokeObjectURL(a.href);
     }
 
     // 7. 系統初始化 (預設為空白)
